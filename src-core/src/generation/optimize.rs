@@ -88,17 +88,6 @@ fn perturb_expr(expr: &Expr, delta: f64, fallback_unit: &str) -> Expr {
     Expr::new(&format!("{new_val} {unit}"), new_val)
 }
 
-/// Perturb the pose of waypoint `idx` in `file`'s parameters by (`dx`, `dy`,
-/// `dtheta`) and return the new file.
-fn perturb_waypoint(file: &TrajectoryFile, idx: usize, dx: f64, dy: f64, dtheta: f64) -> TrajectoryFile {
-    let mut out = file.clone();
-    let waypoint = &mut out.params.waypoints[idx];
-    waypoint.x = perturb_expr(&waypoint.x, dx, "m");
-    waypoint.y = perturb_expr(&waypoint.y, dy, "m");
-    waypoint.heading = perturb_expr(&waypoint.heading, dtheta, "rad");
-    out
-}
-
 /// A single degree of freedom of a waypoint, describing how it may be
 /// perturbed during optimization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -119,8 +108,8 @@ fn optimizable_dofs(file: &TrajectoryFile, idx: usize) -> Vec<(Dof, f64)> {
     let waypoint = &file.params.waypoints[idx];
     let mut out = Vec::new();
     if waypoint.fix_translation {
-        let dx = waypoint.dx.snapshot();
-        let dy = waypoint.dy.snapshot();
+        let dx = waypoint.dx.snapshot().abs();
+        let dy = waypoint.dy.snapshot().abs();
         if dx != 0.0 {
             out.push((Dof::Dx, dx));
         }
@@ -129,7 +118,7 @@ fn optimizable_dofs(file: &TrajectoryFile, idx: usize) -> Vec<(Dof, f64)> {
         }
     }
     if waypoint.fix_heading {
-        let dtheta = waypoint.dtheta.snapshot();
+        let dtheta = waypoint.dtheta.snapshot().abs();
         if dtheta != 0.0 {
             out.push((Dof::Dtheta, dtheta));
         }
@@ -137,15 +126,32 @@ fn optimizable_dofs(file: &TrajectoryFile, idx: usize) -> Vec<(Dof, f64)> {
     out
 }
 
-/// Perturb `file`'s waypoint `idx` by `+amount` or `-amount` in the given
-/// degree of freedom.
-fn candidate(file: &TrajectoryFile, idx: usize, dof: Dof, amount: f64, sign: f64) -> TrajectoryFile {
-    let (dx, dy, dtheta) = match dof {
-        Dof::Dx => (amount * sign, 0.0, 0.0),
-        Dof::Dy => (0.0, amount * sign, 0.0),
-        Dof::Dtheta => (0.0, 0.0, amount * sign),
-    };
-    perturb_waypoint(file, idx, dx, dy, dtheta)
+/// Return a candidate at one endpoint of `idx`'s original allowed range for
+/// `dof`. Other accepted coordinate changes are retained from `current`.
+///
+/// Crucially, the endpoint is measured from `original`, rather than from the
+/// current best result. That keeps every coordinate in `[original - amount,
+/// original + amount]` even after multiple optimization sweeps.
+fn candidate(
+    current: &TrajectoryFile,
+    original: &TrajectoryFile,
+    idx: usize,
+    dof: Dof,
+    amount: f64,
+    sign: f64,
+) -> TrajectoryFile {
+    let mut out = current.clone();
+    let waypoint = &mut out.params.waypoints[idx];
+    let origin = &original.params.waypoints[idx];
+
+    match dof {
+        Dof::Dx => waypoint.x = perturb_expr(&origin.x, amount * sign, "m"),
+        Dof::Dy => waypoint.y = perturb_expr(&origin.y, amount * sign, "m"),
+        Dof::Dtheta => {
+            waypoint.heading = perturb_expr(&origin.heading, amount * sign, "rad");
+        }
+    }
+    out
 }
 
 /// Optimize a trajectory by perturbing each waypoint's pose within its
@@ -166,6 +172,8 @@ pub fn optimize(
     cancel: oneshot::Receiver<()>,
 ) -> ChoreoResult<TrajectoryFile> {
     let mut cancel = cancel;
+    // Keep the user-provided poses as the center of every optimization bound.
+    let original = trajectory_file.clone();
 
     // Establish a baseline by regenerating the given trajectory. This also
     // handles stale trajectories.
@@ -196,7 +204,7 @@ pub fn optimize(
 
             for (dof, amount) in dofs {
                 for sign in [1.0, -1.0] {
-                    let candidate_file = candidate(&current, idx, dof, amount, sign);
+                    let candidate_file = candidate(&current, &original, idx, dof, amount, sign);
                     match generate(project.clone(), candidate_file, handle) {
                         Ok(result) => {
                             let time = total_time(&result);
@@ -359,9 +367,23 @@ mod tests {
     #[test]
     fn candidate_perturbs_the_requested_dof() {
         let file = test_trajectory();
-        let out = candidate(&file, 0, Dof::Dx, 0.5, 1.0);
+        let out = candidate(&file, &file, 0, Dof::Dx, 0.5, 1.0);
         assert_eq!(out.params.waypoints[0].x.val, 1.5);
         assert_eq!(out.params.waypoints[0].y.val, 1.0);
         assert_eq!(out.params.waypoints[0].heading.val, 0.0);
+    }
+
+    #[test]
+    fn candidate_stays_within_the_original_bounds_across_sweeps() {
+        let original = test_trajectory();
+        let at_upper_bound = candidate(&original, &original, 1, Dof::Dx, 0.5, 1.0);
+
+        // A later sweep must not add another 0.5 m to the already-moved
+        // waypoint. Both endpoints are measured from the original pose.
+        let still_at_upper_bound = candidate(&at_upper_bound, &original, 1, Dof::Dx, 0.5, 1.0);
+        let at_lower_bound = candidate(&at_upper_bound, &original, 1, Dof::Dx, 0.5, -1.0);
+
+        assert_eq!(still_at_upper_bound.params.waypoints[1].x.val, 2.5);
+        assert_eq!(at_lower_bound.params.waypoints[1].x.val, 1.5);
     }
 }
