@@ -18,6 +18,7 @@ mod traj_file {
         upgrader.add_version_action(up_0_1);
         upgrader.add_version_action(up_1_2);
         upgrader.add_version_action(up_2_3);
+        upgrader.add_version_action(up_3_4);
         // Ensure the new upgrader is added here
         upgrader
     }
@@ -51,6 +52,55 @@ mod traj_file {
 
     fn up_2_3(editor: &mut Editor) -> ChoreoResult<()> {
         clear_generation_result(editor)
+    }
+
+    /// Add the per-waypoint optimization bounds (dx, dy, dtheta) introduced in v4.
+    /// Files from before v4 cannot have these fields, so default them to zero
+    /// (meaning "this waypoint cannot be perturbed during optimization").
+    fn up_3_4(editor: &mut Editor) -> ChoreoResult<()> {
+        use serde_json::Value as JsonValue;
+        use crate::spec::Expr;
+
+        fn add_bounds_to_waypoints(
+            waypoints: Vec<JsonValue>,
+            is_snapshot: bool,
+        ) -> ChoreoResult<Vec<JsonValue>> {
+            let mut out = Vec::with_capacity(waypoints.len());
+            for waypoint in waypoints {
+                let mut waypoint = waypoint;
+                if let Some(obj) = waypoint.as_object_mut() {
+                    let zero = if is_snapshot {
+                        JsonValue::from(0.0f64)
+                    } else {
+                        serde_json::to_value(Expr::new("0 m", 0.0))?
+                    };
+                    obj.entry("dx").or_insert_with(|| zero.clone());
+                    obj.entry("dy").or_insert_with(|| zero.clone());
+                    let dtheta = if is_snapshot {
+                        JsonValue::from(0.0f64)
+                    } else {
+                        serde_json::to_value(Expr::new("0 deg", 0.0))?
+                    };
+                    obj.entry("dtheta").or_insert(dtheta);
+                }
+                out.push(waypoint);
+            }
+            Ok(out)
+        }
+
+        let waypoints: Vec<JsonValue> = editor.get_path("params.waypoints")?;
+        editor.set_path_serialize(
+            "params.waypoints",
+            add_bounds_to_waypoints(waypoints, false)?,
+        )?;
+        if editor.has_path("snapshot.waypoints") {
+            let waypoints: Vec<JsonValue> = editor.get_path("snapshot.waypoints")?;
+            editor.set_path_serialize(
+                "snapshot.waypoints",
+                add_bounds_to_waypoints(waypoints, true)?,
+            )?;
+        }
+        Ok(())
     }
 
     #[cfg(test)]
@@ -103,6 +153,14 @@ mod traj_file {
         #[test]
         pub fn test_3_swerve() -> ChoreoResult<()> {
             test_trajectory("3", "swerve")
+        }
+        #[test]
+        pub fn test_4_differential() -> ChoreoResult<()> {
+            test_trajectory("4", "differential")
+        }
+        #[test]
+        pub fn test_4_swerve() -> ChoreoResult<()> {
+            test_trajectory("4", "swerve")
         }
 
         /// Tests that the file upgrades to the current version and deserializes properly.

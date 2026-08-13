@@ -219,6 +219,7 @@ pub fn run_tauri(project: Option<PathBuf>) {
             delete_trajectory,
             tracing_frontend,
             generate_remote,
+            optimize_trajectory,
             cancel_remote_generator,
             cancel_all_remote_generators,
             build_info,

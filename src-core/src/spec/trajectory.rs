@@ -21,6 +21,21 @@ pub struct Waypoint<T: SnapshottableType> {
     ///
     /// Units: radians
     pub heading: T,
+    /// The maximum distance the waypoint may be perturbed in the x direction
+    /// when optimizing the trajectory.
+    ///
+    /// Units: meters
+    pub dx: T,
+    /// The maximum distance the waypoint may be perturbed in the y direction
+    /// when optimizing the trajectory.
+    ///
+    /// Units: meters
+    pub dy: T,
+    /// The maximum angle the waypoint heading may be perturbed when optimizing
+    /// the trajectory.
+    ///
+    /// Units: radians
+    pub dtheta: T,
     /// The number of control intervals to use between this waypoint and the next.
     pub intervals: usize,
     /// Whether to split the trajectory at this waypoint.
@@ -44,6 +59,9 @@ impl<T: SnapshottableType> Waypoint<T> {
             x: self.x.snapshot(),
             y: self.y.snapshot(),
             heading: self.heading.snapshot(),
+            dx: self.dx.snapshot(),
+            dy: self.dy.snapshot(),
+            dtheta: self.dtheta.snapshot(),
             intervals: self.intervals,
             split: self.split,
             fix_translation: self.fix_translation,
@@ -542,6 +560,9 @@ mod tests {
                 x: Expr::fill_in_value(0.0, "m"),
                 y: Expr::fill_in_value(0.0, "m"),
                 heading: Expr::fill_in_value(0.0, "rad"),
+                dx: Expr::fill_in_value(0.0, "m"),
+                dy: Expr::fill_in_value(0.0, "m"),
+                dtheta: Expr::fill_in_value(0.0, "rad"),
                 intervals: 20,
                 split: false,
                 fix_translation: false,

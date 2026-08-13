@@ -1,6 +1,7 @@
 pub mod generate;
 pub mod heading;
 pub mod intervals;
+pub mod optimize;
 pub mod remote;
 
 /// A port of `WPILib`'s MathUtil.inputModulus

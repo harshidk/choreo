@@ -184,6 +184,21 @@ export const HolonomicPathStore = types
         self.ui.setUpToDate(true);
       },
 
+      processOptimizationResult(ser: Trajectory) {
+        // The optimizer perturbs waypoint poses, so apply the optimized poses
+        // back to the waypoints in addition to the generated trajectory.
+        ser.params.waypoints.forEach((w, i) => {
+          const waypoint = self.params.waypoints[i];
+          if (waypoint !== undefined) {
+            waypoint.x.deserialize(w.x);
+            waypoint.y.deserialize(w.y);
+            waypoint.heading.deserialize(w.heading);
+            waypoint.setIntervals(w.intervals);
+          }
+        });
+        this.processGenerationResult(ser);
+      },
+
       deserialize(ser: Trajectory) {
         self.name = ser.name;
         self.snapshot = ser.snapshot;

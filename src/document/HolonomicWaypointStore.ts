@@ -9,6 +9,9 @@ export const DEFAULT_WAYPOINT: Waypoint<number> = {
   x: 0,
   y: 0,
   heading: 0,
+  dx: 0,
+  dy: 0,
+  dtheta: 0,
   fixTranslation: true,
   fixHeading: true,
   intervals: 40,
@@ -23,6 +26,9 @@ export const HolonomicWaypointStore = types
     x: ExpressionStore,
     y: ExpressionStore,
     heading: ExpressionStore,
+    dx: ExpressionStore,
+    dy: ExpressionStore,
+    dtheta: ExpressionStore,
     fixTranslation: true,
     fixHeading: true,
     intervals: 40,
@@ -52,6 +58,9 @@ export const HolonomicWaypointStore = types
           x: self.x.serialize,
           y: self.y.serialize,
           heading: self.heading.serialize,
+          dx: self.dx.serialize,
+          dy: self.dy.serialize,
+          dtheta: self.dtheta.serialize,
           fixTranslation: self.fixTranslation,
           fixHeading: self.fixHeading,
           intervals: self.intervals,
@@ -81,6 +90,9 @@ export const HolonomicWaypointStore = types
         self.x.deserialize(point.x);
         self.y.deserialize(point.y);
         self.heading.deserialize(point.heading);
+        self.dx.deserialize(point.dx);
+        self.dy.deserialize(point.dy);
+        self.dtheta.deserialize(point.dtheta);
         self.fixTranslation = point.fixTranslation;
         self.fixHeading = point.fixHeading;
         self.intervals = point.intervals;

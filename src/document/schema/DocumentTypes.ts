@@ -78,6 +78,21 @@ export interface Waypoint<T extends ExprOrNumber> {
   x: T;
   y: T;
   heading: T;
+  /**
+   * The maximum distance this waypoint may be perturbed in the x direction
+   * when optimizing the trajectory.
+   */
+  dx: T;
+  /**
+   * The maximum distance this waypoint may be perturbed in the y direction
+   * when optimizing the trajectory.
+   */
+  dy: T;
+  /**
+   * The maximum angle this waypoint's heading may be perturbed when
+   * optimizing the trajectory.
+   */
+  dtheta: T;
   intervals: number;
   split: boolean;
   fixTranslation: boolean;

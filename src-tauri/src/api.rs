@@ -354,6 +354,24 @@ pub async fn generate_remote(
 }
 
 #[tauri::command]
+pub async fn optimize_trajectory(
+    app_handle: tauri::AppHandle,
+    project: ProjectFile,
+    trajectory: TrajectoryFile,
+    handle: i64,
+) -> TauriResult<TrajectoryFile> {
+    let remote_resources = app_handle.state::<RemoteGenerationResources>();
+    let (killer, victim) = tokio::sync::oneshot::channel::<()>();
+    remote_resources.add_killer(handle, killer);
+    let result = tokio::task::spawn_blocking(move || {
+        choreo_core::generation::optimize::optimize(project, trajectory, handle, victim)
+    })
+    .await
+    .expect("optimize_trajectory task panicked");
+    debug_result!(result);
+}
+
+#[tauri::command]
 pub fn cancel_remote_generator(app_handle: tauri::AppHandle, handle: i64) -> TauriResult<()> {
     let remote_resources = app_handle.state::<RemoteGenerationResources>();
     debug_result!(remote_resources.kill(handle));

@@ -2,11 +2,13 @@ import { observer } from "mobx-react";
 import { Component } from "react";
 import {
   doc,
-  generateWithToastsAndExport
+  generateWithToastsAndExport,
+  optimizeWithToastsAndExport
 } from "../../document/DocumentManager";
 import WaypointPanel from "../config/WaypointConfigPanel";
 
 import { Close } from "@mui/icons-material";
+import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import ShapeLineIcon from "@mui/icons-material/ShapeLine";
 import { Box, CircularProgress, IconButton, Tooltip } from "@mui/material";
 import { IConstraintStore } from "../../document/ConstraintStore";
@@ -96,62 +98,104 @@ export class Field extends Component<Props, State> {
               position: "absolute",
               bottom: 16,
               right: 16,
-              width: 48,
-              height: 48
+              display: "flex",
+              flexDirection: "column",
+              gap: 1,
+              alignItems: "flex-end"
             }}
           >
-            {/* cancel button */}
-            <IconButton
-              aria-label="add"
-              size="large"
-              style={{ pointerEvents: "all" }}
-              sx={{
-                position: "absolute",
-                bottom: 0,
-                right: 0,
-                width: "100%",
-                height: "100%",
-                transformOrigin: "100% 100%",
-                transform: "scale(1.3)",
-                borderRadius: "50%",
-                boxShadow: "3px",
-                marginInline: 0,
-                zIndex: activePath.ui.generating ? 10 : -1,
-                backgroundColor: "red",
-                "&:hover": {
-                  backgroundColor: "darkred"
-                }
-              }}
-              onClick={(_event) => {
-                Commands.cancel(activePath.handle);
-              }}
-              disabled={activePath.canGenerate()}
+            <Tooltip
+              disableInteractive
+              title={
+                activePath.canGenerate()
+                  ? "Optimize Path (perturb waypoints within their bounds to minimize time)"
+                  : "Optimize Path (needs 2 waypoints)"
+              }
             >
-              <Close> </Close>
-            </IconButton>
-            <IconButton
-              color="primary"
-              aria-label="add"
-              size="large"
-              style={{ pointerEvents: "all" }}
-              sx={{
-                position: "absolute",
-                bottom: 0,
-                right: 0,
-                width: "100%",
-                height: "100%",
-                transformOrigin: "100% 100%",
-                transform: "scale(1.3)",
-                borderRadius: "50%",
-                boxShadow: "3px",
-                marginInline: 0,
-                visibility: activePath.canGenerate() ? "visible" : "hidden"
-              }}
-              onClick={() => generateWithToastsAndExport(activePathUUID)}
-              disabled={!activePath.canGenerate()}
-            >
-              <ShapeLineIcon></ShapeLineIcon>
-            </IconButton>
+              <span>
+                <IconButton
+                  color="secondary"
+                  aria-label="optimize"
+                  size="large"
+                  disabled={!activePath.canGenerate()}
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    transform: "scale(1.3)",
+                    transformOrigin: "100% 100%",
+                    borderRadius: "50%",
+                    boxShadow: "3px",
+                    marginInline: 0,
+                    backgroundColor: "var(--accent-purple)",
+                    "&:hover": {
+                      backgroundColor: "var(--darker-purple)"
+                    },
+                    "&.Mui-disabled": {
+                      backgroundColor: "var(--darker-purple)"
+                    }
+                  }}
+                  onClick={() => optimizeWithToastsAndExport(activePathUUID)}
+                >
+                  <AutoFixHighIcon></AutoFixHighIcon>
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Box sx={{ position: "relative", width: 48, height: 48 }}>
+              {/* cancel button */}
+              <IconButton
+                aria-label="add"
+                size="large"
+                style={{ pointerEvents: "all" }}
+                sx={{
+                  position: "absolute",
+                  bottom: 0,
+                  right: 0,
+                  width: "100%",
+                  height: "100%",
+                  transformOrigin: "100% 100%",
+                  transform: "scale(1.3)",
+                  borderRadius: "50%",
+                  boxShadow: "3px",
+                  marginInline: 0,
+                  zIndex: activePath.ui.generating ? 10 : -1,
+                  backgroundColor: "red",
+                  "&:hover": {
+                    backgroundColor: "darkred"
+                  }
+                }}
+                onClick={(_event) => {
+                  Commands.cancel(activePath.handle);
+                }}
+                disabled={activePath.canGenerate()}
+              >
+                <Close> </Close>
+              </IconButton>
+              <IconButton
+                color="primary"
+                aria-label="add"
+                size="large"
+                style={{ pointerEvents: "all" }}
+                sx={{
+                  position: "absolute",
+                  bottom: 0,
+                  right: 0,
+                  width: "100%",
+                  height: "100%",
+                  transformOrigin: "100% 100%",
+                  transform: "scale(1.3)",
+                  borderRadius: "50%",
+                  boxShadow: "3px",
+                  marginInline: 0,
+                  visibility: activePath.canGenerate()
+                    ? "visible"
+                    : "hidden"
+                }}
+                onClick={() => generateWithToastsAndExport(activePathUUID)}
+                disabled={!activePath.canGenerate()}
+              >
+                <ShapeLineIcon></ShapeLineIcon>
+              </IconButton>
+            </Box>
           </Box>
         </Tooltip>
         {activePath.ui.generating && (

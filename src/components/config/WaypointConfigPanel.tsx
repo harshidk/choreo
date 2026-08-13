@@ -1,4 +1,11 @@
-import { ToggleButton, ToggleButtonGroup, Tooltip } from "@mui/material";
+import {
+  IconButton,
+  Popover,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip
+} from "@mui/material";
+import TuneIcon from "@mui/icons-material/Tune";
 import { observer } from "mobx-react";
 import { Component, ReactElement } from "react";
 import { IHolonomicWaypointStore } from "../../document/HolonomicWaypointStore";
@@ -14,10 +21,10 @@ import { doc } from "../../document/DocumentManager";
 
 type Props = { waypoint: IHolonomicWaypointStore | null; index: number };
 
-type State = object;
+type State = { boundsAnchorEl: HTMLElement | null };
 
 class WaypointPanel extends Component<Props, State> {
-  state = {};
+  state: State = { boundsAnchorEl: null };
 
   isWaypointNonNull(
     point: IHolonomicWaypointStore | null
@@ -108,6 +115,80 @@ class WaypointPanel extends Component<Props, State> {
               ></BooleanInput>
             </InputList>
             <span style={{ flexGrow: 1 }}></span>
+            <Tooltip
+              disableInteractive
+              title="Optimization Bounds (dx, dy, dθ)"
+            >
+              <IconButton
+                size="small"
+                sx={{ marginInline: "auto", marginBlock: "auto" }}
+                onClick={(e) =>
+                  this.setState({
+                    boundsAnchorEl:
+                      this.state.boundsAnchorEl === null
+                        ? e.currentTarget
+                        : null
+                  })
+                }
+              >
+                <TuneIcon></TuneIcon>
+              </IconButton>
+            </Tooltip>
+            <Popover
+              open={this.state.boundsAnchorEl !== null}
+              anchorEl={this.state.boundsAnchorEl}
+              onClose={() => this.setState({ boundsAnchorEl: null })}
+              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+              PaperProps={{
+                style: { backgroundColor: "var(--background-light-gray)" }
+              }}
+            >
+              <div
+                style={{
+                  padding: "8px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                  color: "white"
+                }}
+              >
+                <span style={{ fontWeight: "bolder" }}>
+                  Optimization Bounds
+                </span>
+                <span
+                  style={{
+                    fontSize: "0.85em",
+                    color: "var(--text-gray)"
+                  }}
+                >
+                  Maximum perturbation of this waypoint when optimizing the
+                  path. Zero disables a degree of freedom.
+                </span>
+                <ExpressionInputList>
+                  <ExpressionInput
+                    title="dx"
+                    enabled={true}
+                    maxWidthCharacters={8}
+                    number={waypoint.dx}
+                    titleTooltip="Maximum x perturbation (m)"
+                  ></ExpressionInput>
+                  <ExpressionInput
+                    title="dy"
+                    enabled={true}
+                    maxWidthCharacters={8}
+                    number={waypoint.dy}
+                    titleTooltip="Maximum y perturbation (m)"
+                  ></ExpressionInput>
+                  <ExpressionInput
+                    title="dθ"
+                    enabled={true}
+                    maxWidthCharacters={8}
+                    number={waypoint.dtheta}
+                    titleTooltip="Maximum heading perturbation (rad)"
+                  ></ExpressionInput>
+                </ExpressionInputList>
+              </div>
+            </Popover>
             <ToggleButtonGroup
               sx={{ marginInline: "auto", marginBlock: "auto" }}
               size="small"

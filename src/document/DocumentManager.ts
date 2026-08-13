@@ -178,6 +178,9 @@ function getConstructors(vars: () => IVariables): EnvConstructors {
         x: vars().createExpression(waypoint.x, "Length"),
         y: vars().createExpression(waypoint.y, "Length"),
         heading: vars().createExpression(waypoint.heading, "Angle"),
+        dx: vars().createExpression(waypoint.dx, "Length"),
+        dy: vars().createExpression(waypoint.dy, "Length"),
+        dtheta: vars().createExpression(waypoint.dtheta, "Angle"),
         uuid: crypto.randomUUID()
       });
       return w;
@@ -728,6 +731,21 @@ export async function generateWithToastsAndExport(uuid: string) {
   tracing.debug("generateWithToastsAndExport", uuid);
 
   await doc.generatePathWithToasts(uuid);
+  await toast.promise(writeTrajectory(uuid), {
+    error: {
+      render(toastProps) {
+        tracing.error(toastProps.data);
+        return `Couldn't export trajectory: ${toastProps.data as string[]}`;
+      }
+    }
+  });
+  await genJavaFiles();
+}
+
+export async function optimizeWithToastsAndExport(uuid: string) {
+  tracing.debug("optimizeWithToastsAndExport", uuid);
+
+  await doc.optimizePathWithToasts(uuid);
   await toast.promise(writeTrajectory(uuid), {
     error: {
       render(toastProps) {

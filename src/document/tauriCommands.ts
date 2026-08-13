@@ -31,6 +31,19 @@ export const Commands = {
     invoke<Trajectory>("generate_remote", { project, trajectory, handle }),
 
   /**
+   * Optimizes a `Trajectory` by perturbing its waypoints within their
+   * per-waypoint bounds (dx, dy, dtheta) to minimize total time.
+   *
+   * @param project The `Project` to use for optimization.
+   * @param trajectory The `Trajectory` to optimize.
+   * @param handle The handle of the optimizer to use.
+   *
+   * @returns The optimized `Trajectory`.
+   */
+  optimize: (project: Project, trajectory: Trajectory, handle: number) =>
+    invoke<Trajectory>("optimize_trajectory", { project, trajectory, handle }),
+
+  /**
    * Cancels all of the generators that are currently running.
    *
    * @returns `void`

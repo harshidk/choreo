@@ -281,6 +281,79 @@ export const DocumentStore = types
           // none of the below should trigger autosave
           pathStore.ui.setGenerating(false);
         });
+    },
+
+    async optimizePath(uuid: string) {
+      const pathStore = self.pathlist.paths.get(uuid);
+      if (pathStore === undefined) {
+        throw "Path store is undefined";
+      }
+      const points = pathStore.params.waypoints;
+      if (points.length < 2) {
+        return;
+      }
+
+      pathStore.params.constraints
+        .filter((constraint) => constraint.enabled)
+        .forEach((constraint) => {
+          if (constraint.issues(points).length > 0) {
+            throw constraint.issues(points).join(", ");
+          }
+        });
+
+      pathStore.markers.forEach((m) => {
+        m.from.setTrajectoryTargetIndex(m.from.getTargetIndex());
+      });
+      const handle = pathStore.handle;
+      let unlisten: UnlistenFn = () => {};
+      pathStore.ui.setIterationNumber(0);
+      await listen(`solver-status-${handle}`, async (rawEvent) => {
+        const event: Event<ProgressUpdate> = rawEvent as Event<ProgressUpdate>;
+        pathStore.ui.setGenerating(true);
+        if (
+          event.payload!.type === "swerveTrajectory" ||
+          event.payload!.type === "differentialTrajectory"
+        ) {
+          const samples = event.payload.update as
+            | SwerveSample[]
+            | DifferentialSample[];
+          pathStore.ui.setInProgressTrajectory(samples);
+          pathStore.ui.setIterationNumber(
+            pathStore.ui.generationIterationNumber + 1
+          );
+        } else if (event.payload!.type === "diagnosticText") {
+          /**/
+        } else if (event.payload!.type === "intervalCounts") {
+          (event.payload.update as number[]).forEach((c, i) =>
+            pathStore.params.waypoints[i].setIntervals(c)
+          );
+        }
+      })
+        .then((unlistener) => {
+          unlisten = unlistener;
+          return Commands.optimize(
+            self.serializeChor(),
+            pathStore.serialize,
+            handle
+          );
+        })
+        .finally(() => {
+          unlisten();
+        })
+        .then(
+          (rust_trajectory) => {
+            const result: Trajectory = rust_trajectory as Trajectory;
+            if (result.trajectory.samples.length == 0) throw "No trajectory";
+            pathStore.processOptimizationResult(result);
+          },
+          (e) => {
+            tracing.error("optimizePathPost:", e);
+            throw e;
+          }
+        )
+        .finally(() => {
+          pathStore.ui.setGenerating(false);
+        });
     }
   }))
   .actions((self) => {
@@ -302,6 +375,27 @@ export const DocumentStore = types
             render({ data, toastProps }) {
               tracing.error("generatePathWithToasts:", data);
               return `Can't generate "${pathName}": ` + (data as string);
+            }
+          }
+        });
+      },
+      optimizePathWithToasts(activePathUUID: string) {
+        tracing.debug("optimizePathWithToasts", activePathUUID);
+        const path = self.pathlist.paths.get(activePathUUID)!;
+        if (path.ui.generating) {
+          return Promise.resolve();
+        }
+        toast.dismiss();
+
+        const pathName = path.name;
+        if (pathName === undefined) {
+          toast.error("Tried to optimize unknown path.");
+        }
+        return toast.promise(self.optimizePath(activePathUUID), {
+          error: {
+            render({ data, toastProps }) {
+              tracing.error("optimizePathWithToasts:", data);
+              return `Can't optimize "${pathName}": ` + (data as string);
             }
           }
         });
